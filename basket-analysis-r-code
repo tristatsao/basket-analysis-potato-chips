@@ -1,0 +1,40 @@
+library(arules)
+library(arulesViz)
+library(dplyr)
+library(plyr)
+
+Transact.df<- read.csv("Agg2010.csv")
+
+Transact.df <- Transact.df[order(Transact.df$panid),]
+
+
+
+Transact_item <- ddply(Transact.df,c("panid","week","minute"), #panid/week/minute
+                       function(df)paste(df$L2,  # define the product (field L2)
+                                         collapse = ","))
+
+# Get rid of extraneous info (which implicitly treats all trips as independent)
+
+Transact_item$panid <- NULL
+Transact_item$week <- NULL
+Transact_item$minute <- NULL
+# Save processed transactions
+
+write.csv(Transact_item,"Transact_item.csv", quote = FALSE, row.names = TRUE)
+
+# Read processed transactions
+
+Transact_tx = read.transactions(file="Transact_item.csv", rm.duplicates= TRUE, format="basket",sep=",",cols=1);
+
+
+# Strip quotes if they exist
+
+Transact_tx@itemInfo$labels <- gsub("\"","",Transact_tx@itemInfo$labels)
+
+# Create rules - Note these two parameters sup = support and conf = confidence can be adjusted to get more or fewer rules
+
+Transact_rules <- apriori(Transact_tx,parameter = list(sup = 0.001, conf = 0.25,target="rules")); #set 0.25 confidence level
+
+saverules<-as(Transact_rules,"data.frame")
+
+new <-saverules  %>% filter(grepl('POTATO CHIPS', rules)) #filter the rules that contain potato chips
